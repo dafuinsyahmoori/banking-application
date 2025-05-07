@@ -1,3 +1,4 @@
+using BankingApplication.BsonSerializers;
 using BankingApplication.DependencyRegistrations;
 using BankingApplication.Entities;
 using BankingApplication.JsonConverters;
@@ -5,13 +6,12 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Conventions;
-using MongoDB.Bson.Serialization.Options;
 using MongoDB.Bson.Serialization.Serializers;
 
 ConventionRegistry.Register("camelCase", new ConventionPack { new CamelCaseElementNameConvention() }, _ => true);
 
 BsonSerializer.RegisterSerializer(new GuidSerializer(GuidRepresentation.Standard));
-BsonSerializer.RegisterSerializer(new DateOnlySerializer(BsonType.Document, DateOnlyDocumentFormat.YearMonthDay));
+BsonSerializer.RegisterSerializer(new DateOnlyBsonSerializer());
 
 BsonClassMap.RegisterClassMap<User>(classMap =>
 {

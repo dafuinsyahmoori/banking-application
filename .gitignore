@@ -3,3 +3,4 @@
 appsettings.json
 appsettings.*.json
 !appsettings.Example.json
+/user-secrets.xml
