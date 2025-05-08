@@ -1,8 +1,11 @@
+using BankingApplication.AuthorizationMiddlewareResultHandlers;
 using BankingApplication.BsonSerializers;
 using BankingApplication.DependencyRegistrations;
 using BankingApplication.Entities;
 using BankingApplication.JsonConverters;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Conventions;
@@ -17,8 +20,8 @@ BsonClassMap.RegisterClassMap<User>(classMap =>
 {
     classMap.AutoMap();
 
-    classMap.MapMember(u => u.MiddleName).SetIgnoreIfDefault(true);
-    classMap.MapMember(u => u.LastName).SetIgnoreIfDefault(true);
+    classMap.MapMember(u => u.MiddleName).SetIgnoreIfNull(true);
+    classMap.MapMember(u => u.LastName).SetIgnoreIfNull(true);
 });
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,21 +30,33 @@ builder.Services.AddDatabaseClient(builder.Configuration);
 builder.Services.AddDatabaseInstance();
 builder.Services.AddDatabaseCollections();
 
-builder.Services
-    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+builder.Services.AddMemoryCache();
+
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie();
 
-builder.Services
-    .AddAuthorizationBuilder()
+builder.Services.AddAuthorizationBuilder()
     .AddPolicy("UserOnly", policy =>
     {
         policy.RequireClaim("Role", "User");
         policy.RequireClaim("ID");
+    })
+    .AddPolicy("AdminOnly", policy =>
+    {
+        policy.RequireClaim("Role", "Admin");
+        policy.RequireClaim("ID");
     });
 
-builder.Services
-    .AddControllers()
+builder.Services.AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new DateOnlyJsonConverter()));
+
+builder.Services.AddHttpContextAccessor();
+
+builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, UnauthorizedAuthorizationMiddlewareResultHandler>();
+
+builder.Services.AddTransient<IPasswordHasher<object>, PasswordHasher<object>>();
+
+builder.Services.AddUtilities();
 
 var app = builder.Build();
 

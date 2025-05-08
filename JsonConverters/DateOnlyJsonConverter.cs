@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -29,10 +30,12 @@ namespace BankingApplication.JsonConverters
 
         public override void Write(Utf8JsonWriter writer, DateOnly value, JsonSerializerOptions options)
         {
+            var monthName = CultureInfo.InvariantCulture.DateTimeFormat.GetMonthName(value.Month);
+
             writer.WriteStartObject();
 
             writer.WriteNumber("year", value.Year);
-            writer.WriteNumber("month", value.Month);
+            writer.WriteString("month", monthName);
             writer.WriteNumber("day", value.Day);
 
             writer.WriteEndObject();
