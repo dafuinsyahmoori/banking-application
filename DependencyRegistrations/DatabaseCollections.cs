@@ -61,6 +61,11 @@ namespace BankingApplication.DependencyRegistrations
                     collection.Indexes.CreateOne(indexModel);
 
                     return collection;
+                })
+                .AddSingleton(serviceProvider =>
+                {
+                    var database = serviceProvider.GetRequiredService<IMongoDatabase>();
+                    return database.GetCollection<TransactionHistory>("transactionHistories");
                 });
         }
     }

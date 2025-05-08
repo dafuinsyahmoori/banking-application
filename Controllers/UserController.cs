@@ -9,7 +9,7 @@ namespace BankingApplication.Controllers
 {
     [ApiController]
     [Route("api/users")]
-    [Authorize]
+    [Authorize(Policy = "UserOnly")]
     public class UserController(IMongoCollection<User> userCollection, IMemoryCache memoryCache) : ControllerBase
     {
         [HttpGet("me")]
@@ -22,8 +22,8 @@ namespace BankingApplication.Controllers
             {
                 var user = await memoryCache.GetOrCreateAsync($"user-{id}", async cacheEntry =>
                 {
-                    cacheEntry.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(5);
-                    cacheEntry.SlidingExpiration = TimeSpan.FromSeconds(60);
+                    cacheEntry.SetAbsoluteExpiration(TimeSpan.FromMinutes(5));
+                    cacheEntry.SetSlidingExpiration(TimeSpan.FromSeconds(60));
 
                     return await userCollection.AsQueryable()
                         .Where(u => u.Id == id)
