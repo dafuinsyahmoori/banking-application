@@ -9,9 +9,7 @@ namespace BankingApplication.BsonSerializers
 
         public DateOnly Deserialize(BsonDeserializationContext context, BsonDeserializationArgs args)
         {
-            var type = context.Reader.CurrentBsonType;
-
-            if (type is BsonType.Document)
+            if (context.Reader.CurrentBsonType is BsonType.Document)
             {
                 context.Reader.ReadStartDocument();
 
