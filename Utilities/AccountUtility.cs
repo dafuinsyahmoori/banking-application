@@ -4,9 +4,9 @@ namespace BankingApplication.Utilities
 {
     public class AccountUtility
     {
-        private readonly int[] _digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+        private static readonly int[] _digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
 
-        public Task<string> GenerateAccountNumberAsync()
+        public Task<string> GenerateNewAccountNumberAsync()
         {
             var accountNumber = new StringBuilder(15);
 

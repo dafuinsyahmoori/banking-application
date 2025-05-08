@@ -3,6 +3,7 @@ using BankingApplication.BsonSerializers;
 using BankingApplication.DependencyRegistrations;
 using BankingApplication.Entities;
 using BankingApplication.JsonConverters;
+using BankingApplication.RouteConstraints;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -40,6 +41,8 @@ builder.Services.AddDatabaseInstance();
 builder.Services.AddDatabaseCollections();
 
 builder.Services.AddMemoryCache();
+
+builder.Services.AddRouting(options => options.ConstraintMap.Add("accountNumber", typeof(AccountNumberRouteConstraint)));
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie();

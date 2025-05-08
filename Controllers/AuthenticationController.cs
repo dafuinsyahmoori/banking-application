@@ -41,13 +41,13 @@ namespace BankingApplication.Controllers
 
                 await accountCollection.InsertOneAsync(new()
                 {
-                    Number = await accountUtility.GenerateAccountNumberAsync(),
+                    Number = await accountUtility.GenerateNewAccountNumberAsync(),
                     UserId = newUserId
                 });
 
                 await authenticationUtility.SignInAsync(newUserId.ToString(), "User");
 
-                return Created("/users", null);
+                return Created("/api/users", null);
             }
             catch (MongoWriteException exception)
             {
