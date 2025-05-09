@@ -60,7 +60,12 @@ builder.Services.AddAuthorizationBuilder()
     });
 
 builder.Services.AddControllers()
-    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new DateOnlyJsonConverter()));
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new DateOnlyJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new DateTimeJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new TransactionTypeJsonConverter());
+    });
 
 builder.Services.AddHttpContextAccessor();
 

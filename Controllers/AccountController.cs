@@ -15,6 +15,7 @@ namespace BankingApplication.Controllers
     public class AccountController(IMongoCollection<Account> accountCollection, AccountUtility accountUtility, IMongoCollection<TransactionHistory> transactionHistoryCollection) : ControllerBase
     {
         [HttpGet("by/number/{number:accountNumber}")]
+        [Authorize(Policy = "UserOnly")]
         public async Task<IActionResult> GetAccountByNumberAsync(string number)
         {
             try
@@ -29,6 +30,38 @@ namespace BankingApplication.Controllers
                     .FirstAsync();
 
                 return Ok(account);
+            }
+            catch (MongoQueryException exception)
+            {
+                return BadRequest(new { exception.Message, exception.Source });
+            }
+        }
+
+        [HttpGet("by/number/{number:accountNumber}/transaction-histories")]
+        [Authorize(Policy = "UserOnly")]
+        public async Task<IActionResult> GetTransactionHistoriesByAccountNumber(string number)
+        {
+            try
+            {
+                var accountId = await accountCollection.AsQueryable()
+                    .Where(a => a.Number == number)
+                    .Select(a => a.Id)
+                    .FirstAsync();
+
+                var transactionHistories = transactionHistoryCollection.AsQueryable()
+                    .Where(th => th.AccountId == accountId)
+                    .OrderByDescending(th => th.DateTime)
+                    .Select(th => new
+                    {
+                        th.DateTime,
+                        th.Type,
+                        th.Amount,
+                        th.ReceiverAccountNumber,
+                        th.SenderAccountNumber
+                    })
+                    .ToArray();
+
+                return Ok(transactionHistories);
             }
             catch (MongoQueryException exception)
             {
