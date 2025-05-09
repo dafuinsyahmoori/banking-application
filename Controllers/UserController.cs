@@ -10,7 +10,7 @@ namespace BankingApplication.Controllers
     [ApiController]
     [Route("api/users")]
     [Authorize(Policy = "UserOnly")]
-    public class UserController(IMongoCollection<User> userCollection, IMemoryCache memoryCache) : ControllerBase
+    public class UserController(IMongoCollection<User> userCollection, IMemoryCache memoryCache, IMongoCollection<Account> accountCollection) : ControllerBase
     {
         [HttpGet("me")]
         public async Task<IActionResult> GetMeAsync()
@@ -41,6 +41,31 @@ namespace BankingApplication.Controllers
                 });
 
                 return Ok(user);
+            }
+            catch (MongoQueryException exception)
+            {
+                return BadRequest(new { exception.Message, exception.Source });
+            }
+        }
+
+        [HttpGet("me/accounts")]
+        public IActionResult GetMyAccounts()
+        {
+            var idClaim = HttpContext.User.Claims.First(cl => cl.Type == "ID");
+            var id = Guid.Parse(idClaim.Value);
+
+            try
+            {
+                var accounts = accountCollection.AsQueryable()
+                    .Where(a => a.UserId == id)
+                    .Select(a => new
+                    {
+                        a.Number,
+                        a.Balance
+                    })
+                    .ToArray();
+
+                return Ok(accounts);
             }
             catch (MongoQueryException exception)
             {
