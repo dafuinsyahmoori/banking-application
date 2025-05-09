@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using BankingApplication.AuthorizationMiddlewareResultHandlers;
 using BankingApplication.BsonSerializers;
 using BankingApplication.DependencyRegistrations;
@@ -65,6 +66,8 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new DateOnlyJsonConverter());
         options.JsonSerializerOptions.Converters.Add(new DateTimeJsonConverter());
         options.JsonSerializerOptions.Converters.Add(new TransactionTypeJsonConverter());
+
+        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     });
 
 builder.Services.AddHttpContextAccessor();

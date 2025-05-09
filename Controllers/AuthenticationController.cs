@@ -14,7 +14,7 @@ namespace BankingApplication.Controllers
 {
     [ApiController]
     [Route("api/auth")]
-    public class AuthenticationController(IMongoCollection<User> userCollection, IMongoCollection<Account> accountCollection, IPasswordHasher<object> passwordHasher, AccountUtility accountUtility, AuthenticationUtility authenticationUtility, IMemoryCache memoryCache) : ControllerBase
+    public class AuthenticationController(IMongoCollection<User> userCollection, IMongoCollection<Admin> adminCollection, IMongoCollection<Account> accountCollection, IPasswordHasher<object> passwordHasher, AccountUtility accountUtility, AuthenticationUtility authenticationUtility, IMemoryCache memoryCache) : ControllerBase
     {
         [HttpPost("user/sign-up")]
         public async Task<IActionResult> SignUpUserAsync(UserForm userForm)
@@ -47,7 +47,7 @@ namespace BankingApplication.Controllers
 
                 await authenticationUtility.SignInAsync(newUserId.ToString(), "User");
 
-                return Created("/api/users", null);
+                return Created("/api/users/me", null);
             }
             catch (MongoWriteException exception)
             {
@@ -81,6 +81,69 @@ namespace BankingApplication.Controllers
                     return BadRequest(new { Message = "password is not correct" });
 
                 await authenticationUtility.SignInAsync(user.Id.ToString(), "User");
+
+                return Ok();
+            }
+            catch (MongoQueryException exception)
+            {
+                return BadRequest(new { exception.Message, exception.Source });
+            }
+        }
+
+        [HttpPost("admin/sign-up")]
+        public async Task<IActionResult> SignUpAdminAsync(AdminForm adminForm)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            try
+            {
+                var newAdminId = Guid.NewGuid();
+                var newHashedPassword = passwordHasher.HashPassword(null!, adminForm.Password!);
+
+                await adminCollection.InsertOneAsync(new()
+                {
+                    FullName = adminForm.FullName,
+                    Email = adminForm.Email,
+                    Password = newHashedPassword
+                });
+
+                await authenticationUtility.SignInAsync(newAdminId.ToString(), "Admin");
+
+                return Created("/api/admins/me", null);
+            }
+            catch (MongoWriteException exception)
+            {
+                return BadRequest(new { exception.Message, exception.Source });
+            }
+        }
+
+        [HttpPost("admin/sign-in")]
+        public async Task<IActionResult> SignInAdminAsync(AdminCredential adminCredential)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            try
+            {
+                var admin = await userCollection.AsQueryable()
+                    .Where(a => a.Email == adminCredential.Email)
+                    .Select(a => new
+                    {
+                        a.Id,
+                        a.Password
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (admin is null)
+                    return BadRequest(new { Message = "admin is not registered" });
+
+                var passwordVerificationResult = passwordHasher.VerifyHashedPassword(null!, admin.Password!, adminCredential.Password!);
+
+                if (passwordVerificationResult is PasswordVerificationResult.Failed)
+                    return BadRequest(new { Message = "password is not correct" });
+
+                await authenticationUtility.SignInAsync(admin.Id.ToString(), "Admin");
 
                 return Ok();
             }

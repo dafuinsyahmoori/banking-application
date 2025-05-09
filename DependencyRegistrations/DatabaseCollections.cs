@@ -66,6 +66,32 @@ namespace BankingApplication.DependencyRegistrations
                 {
                     var database = serviceProvider.GetRequiredService<IMongoDatabase>();
                     return database.GetCollection<TransactionHistory>("transactionHistories");
+                })
+                .AddSingleton(serviceProvider =>
+                {
+                    var database = serviceProvider.GetRequiredService<IMongoDatabase>();
+                    var collection = database.GetCollection<Admin>("admins");
+
+                    var existingIndexes = collection.Indexes.List();
+
+                    var doesIndexExist = existingIndexes
+                        .ToList()
+                        .Any(
+                            index => index.Any(
+                                el => el.Name == "name" && el.Value.IsString && el.Value.AsString.Contains("email")
+                            )
+                        );
+
+                    if (doesIndexExist)
+                        return collection;
+
+                    var indexKey = Builders<Admin>.IndexKeys.Ascending(a => a.Email);
+
+                    var indexModel = new CreateIndexModel<Admin>(indexKey, new() { Unique = true });
+
+                    collection.Indexes.CreateOne(indexModel);
+
+                    return collection;
                 });
         }
     }

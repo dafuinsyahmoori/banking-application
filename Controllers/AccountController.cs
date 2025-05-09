@@ -14,8 +14,30 @@ namespace BankingApplication.Controllers
     [Authorize]
     public class AccountController(IMongoCollection<Account> accountCollection, AccountUtility accountUtility, IMongoCollection<TransactionHistory> transactionHistoryCollection) : ControllerBase
     {
+        [HttpGet]
+        [Authorize(Policy = "AdminOnly")]
+        public IActionResult GetAllAccounts()
+        {
+            try
+            {
+                var accounts = accountCollection.AsQueryable()
+                    .Select(a => new
+                    {
+                        a.Number,
+                        a.Balance,
+                        a.UserId
+                    })
+                    .ToArray();
+
+                return Ok(accounts);
+            }
+            catch (MongoQueryException exception)
+            {
+                return BadRequest(new { exception.Message, exception.Source });
+            }
+        }
+
         [HttpGet("by/number/{number:accountNumber}")]
-        [Authorize(Policy = "UserOnly")]
         public async Task<IActionResult> GetAccountByNumberAsync(string number)
         {
             try
@@ -38,7 +60,6 @@ namespace BankingApplication.Controllers
         }
 
         [HttpGet("by/number/{number:accountNumber}/transaction-histories")]
-        [Authorize(Policy = "UserOnly")]
         public async Task<IActionResult> GetTransactionHistoriesByAccountNumber(string number)
         {
             try
@@ -53,7 +74,7 @@ namespace BankingApplication.Controllers
                     .OrderByDescending(th => th.DateTime)
                     .Select(th => new
                     {
-                        th.DateTime,
+                        DateTime = th.DateTime.ToLocalTime(),
                         th.Type,
                         th.Amount,
                         th.ReceiverAccountNumber,
@@ -145,6 +166,83 @@ namespace BankingApplication.Controllers
                         AccountId = receiverAccountId
                     }
                 ]);
+
+                return Created("/api/transaction-histories", null);
+            }
+            catch (MongoException exception)
+            {
+                return BadRequest(new { exception.Message, exception.Source });
+            }
+        }
+
+        [HttpPost("do/withdraw")]
+        [Authorize(Policy = "UserOnly")]
+        public async Task<IActionResult> WithdrawMoneyAsync(MoneyWithdrawalAndDepositPayload moneyWithdrawalAndDepositPayload)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest();
+
+            try
+            {
+                var account = await accountCollection.AsQueryable()
+                    .Where(a => a.Number == moneyWithdrawalAndDepositPayload.AccountNumber)
+                    .Select(a => new
+                    {
+                        a.Id,
+                        a.Balance
+                    })
+                    .FirstAsync();
+
+                if (account.Balance < moneyWithdrawalAndDepositPayload.Amount)
+                    return BadRequest(new { Message = "balance is insufficient" });
+
+                var filter = Builders<Account>.Filter.Eq(a => a.Number, moneyWithdrawalAndDepositPayload.AccountNumber);
+                var update = Builders<Account>.Update.Inc(a => a.Balance, -moneyWithdrawalAndDepositPayload.Amount);
+
+                await accountCollection.UpdateOneAsync(filter, update);
+
+                await transactionHistoryCollection.InsertOneAsync(new()
+                {
+                    DateTime = DateTime.UtcNow,
+                    Type = TransactionType.Withdrawal,
+                    Amount = moneyWithdrawalAndDepositPayload.Amount,
+                    AccountId = account.Id
+                });
+
+                return Created("/api/transaction-histories", null);
+            }
+            catch (MongoException exception)
+            {
+                return BadRequest(new { exception.Message, exception.Source });
+            }
+        }
+
+        [HttpPost("do/deposit")]
+        [Authorize(Policy = "UserOnly")]
+        public async Task<IActionResult> DepositMoneyAsync(MoneyWithdrawalAndDepositPayload moneyWithdrawalAndDepositPayload)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest();
+
+            try
+            {
+                var accountId = await accountCollection.AsQueryable()
+                    .Where(a => a.Number == moneyWithdrawalAndDepositPayload.AccountNumber)
+                    .Select(a => a.Id)
+                    .FirstAsync();
+
+                var filter = Builders<Account>.Filter.Eq(a => a.Number, moneyWithdrawalAndDepositPayload.AccountNumber);
+                var update = Builders<Account>.Update.Inc(a => a.Balance, moneyWithdrawalAndDepositPayload.Amount);
+
+                await accountCollection.UpdateOneAsync(filter, update);
+
+                await transactionHistoryCollection.InsertOneAsync(new()
+                {
+                    DateTime = DateTime.UtcNow,
+                    Type = TransactionType.Deposit,
+                    Amount = moneyWithdrawalAndDepositPayload.Amount,
+                    AccountId = accountId
+                });
 
                 return Created("/api/transaction-histories", null);
             }
