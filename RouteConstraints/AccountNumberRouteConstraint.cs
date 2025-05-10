@@ -10,8 +10,6 @@ namespace BankingApplication.RouteConstraints
 
         private static readonly Regex _regex = AccountNumberRegex();
 
-        private static readonly string _something = "something";
-
         public bool Match(HttpContext? httpContext, IRouter? route, string routeKey, RouteValueDictionary values, RouteDirection routeDirection)
         {
             if (values.TryGetValue(routeKey, out var routeValue))
