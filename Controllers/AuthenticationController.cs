@@ -158,9 +158,14 @@ namespace BankingApplication.Controllers
         public async Task<IActionResult> SignOutAsync()
         {
             var idClaim = HttpContext.User.Claims.First(cl => cl.Type == "ID");
-            var id = Guid.Parse(idClaim.Value);
+            var roleClaim = HttpContext.User.Claims.First(cl => cl.Type == "Role");
 
-            memoryCache.Remove($"user-{id}");
+            var id = Guid.Parse(idClaim.Value);
+            var role = roleClaim.Value;
+
+            var cacheKey = $"{role.ToLowerInvariant()}-{id}";
+
+            memoryCache.Remove(cacheKey);
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
 
             return NoContent();
