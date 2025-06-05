@@ -40,6 +40,8 @@ builder.Services.AddDatabaseClient(builder.Configuration);
 builder.Services.AddDatabaseInstance();
 builder.Services.AddDatabaseCollections();
 
+builder.Services.AddKeyedSingleton<Dictionary<string, Task>>("withdrawalCodes", []);
+
 builder.Services.AddMemoryCache();
 
 builder.Services.AddRouting(options => options.ConstraintMap.Add("accountNumber", typeof(AccountNumberRouteConstraint)));

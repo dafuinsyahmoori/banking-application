@@ -65,6 +65,11 @@ namespace BankingApplication.DependencyRegistrations
                 .AddSingleton(serviceProvider =>
                 {
                     var database = serviceProvider.GetRequiredService<IMongoDatabase>();
+                    return database.GetCollection<Withdrawal>("withdrawals");
+                })
+                .AddSingleton(serviceProvider =>
+                {
+                    var database = serviceProvider.GetRequiredService<IMongoDatabase>();
                     return database.GetCollection<TransactionHistory>("transactionHistories");
                 })
                 .AddSingleton(serviceProvider =>
