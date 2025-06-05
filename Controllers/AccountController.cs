@@ -12,7 +12,7 @@ namespace BankingApplication.Controllers
     [ApiController]
     [Route("api/accounts")]
     [Authorize]
-    public class AccountController(IMongoCollection<Account> accountCollection, AccountUtility accountUtility, IMongoCollection<TransactionHistory> transactionHistoryCollection) : ControllerBase
+    public class AccountController(IMongoCollection<Account> accountCollection, AccountUtility accountUtility, IMongoCollection<TransactionHistory> transactionHistoryCollection, IMongoCollection<Withdrawal> withdrawalCollection, [FromKeyedServices("withdrawalCodes")] Dictionary<string, Task> withdrawalCodes) : ControllerBase
     {
         [HttpGet]
         [Authorize(Policy = "AdminOnly")]
@@ -175,12 +175,12 @@ namespace BankingApplication.Controllers
             }
         }
 
-        [HttpPost("do/withdraw")]
+        [HttpPost("do/get-withdrawal-code")]
         [Authorize(Policy = "UserOnly")]
-        public async Task<IActionResult> WithdrawMoneyAsync(MoneyWithdrawalAndDepositPayload moneyWithdrawalAndDepositPayload)
+        public async Task<IActionResult> GetMoneyWithdrawalCodeAsync(MoneyWithdrawalAndDepositPayload moneyWithdrawalAndDepositPayload)
         {
             if (!ModelState.IsValid)
-                return BadRequest();
+                return BadRequest(ModelState);
 
             try
             {
@@ -196,16 +196,84 @@ namespace BankingApplication.Controllers
                 if (account.Balance < moneyWithdrawalAndDepositPayload.Amount)
                     return BadRequest(new { Message = "balance is insufficient" });
 
-                var filter = Builders<Account>.Filter.Eq(a => a.Number, moneyWithdrawalAndDepositPayload.AccountNumber);
-                var update = Builders<Account>.Update.Inc(a => a.Balance, -moneyWithdrawalAndDepositPayload.Amount);
+                var newCode = await accountUtility.GenerateNewWithdrawalCodeAsync();
 
-                await accountCollection.UpdateOneAsync(filter, update);
+                withdrawalCodes.Add(
+                    newCode,
+                    Task.Delay(TimeSpan.FromMinutes(60))
+                        .ContinueWith(_ =>
+                        {
+                            var withdrawalFilter = Builders<Withdrawal>.Filter.Eq(w => w.Code, newCode);
+                            var withdrawalUpdate = Builders<Withdrawal>.Update.Set(w => w.Status, WithdrawalStatus.Expired);
+
+                            withdrawalCollection.UpdateOne(withdrawalFilter, withdrawalUpdate);
+                            withdrawalCodes.Remove(newCode);
+
+                            Console.WriteLine($"Withdrawal code {newCode} has just been expired");
+                        })
+                );
+
+                await withdrawalCollection.InsertOneAsync(new()
+                {
+                    Code = await accountUtility.GenerateNewWithdrawalCodeAsync(),
+                    Amount = moneyWithdrawalAndDepositPayload.Amount,
+                    Due = DateTime.UtcNow.AddMinutes(60),
+                    AccountId = account.Id
+                });
+
+                return Created("/api/withdrawals", null);
+            }
+            catch (MongoException exception)
+            {
+                return BadRequest(new { exception.Message, exception.Source });
+            }
+        }
+
+        [HttpPost("do/withdraw")]
+        [Authorize(Policy = "UserOnly")]
+        public async Task<IActionResult> WithdrawMoneyAsync(MoneyWithdrawalCodePayload moneyWithdrawalCodePayload)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            try
+            {
+                var withdrawal = await withdrawalCollection.AsQueryable()
+                    .Where(w => w.Code == moneyWithdrawalCodePayload.Code)
+                    .FirstAsync();
+
+                if (withdrawal.Status is WithdrawalStatus.Expired or WithdrawalStatus.Failed)
+                    return BadRequest(new { Message = "code is invalid" });
+
+                var account = await accountCollection.AsQueryable()
+                    .Where(a => a.Id == withdrawal.AccountId)
+                    .Select(a => new
+                    {
+                        a.Id,
+                        a.Balance
+                    })
+                    .FirstAsync();
+
+                if (account.Balance < withdrawal.Amount)
+                    return BadRequest(new { Message = "balance is insufficient" });
+
+                var accountFilter = Builders<Account>.Filter.Eq(a => a.Id, account.Id);
+                var accountUpdate = Builders<Account>.Update.Inc(a => a.Balance, -withdrawal.Amount);
+
+                await accountCollection.UpdateOneAsync(accountFilter, accountUpdate);
+
+                var withdrawalFilter = Builders<Withdrawal>.Filter.Eq(w => w.Code, withdrawal.Code);
+                var withdrawalUpdate = Builders<Withdrawal>.Update.Set(w => w.Status, WithdrawalStatus.Successful);
+
+                await withdrawalCollection.UpdateOneAsync(withdrawalFilter, withdrawalUpdate);
+
+                withdrawalCodes.Remove(withdrawal.Code!);
 
                 await transactionHistoryCollection.InsertOneAsync(new()
                 {
                     DateTime = DateTime.UtcNow,
                     Type = TransactionType.Withdrawal,
-                    Amount = moneyWithdrawalAndDepositPayload.Amount,
+                    Amount = withdrawal.Amount,
                     AccountId = account.Id
                 });
 
@@ -222,7 +290,7 @@ namespace BankingApplication.Controllers
         public async Task<IActionResult> DepositMoneyAsync(MoneyWithdrawalAndDepositPayload moneyWithdrawalAndDepositPayload)
         {
             if (!ModelState.IsValid)
-                return BadRequest();
+                return BadRequest(ModelState);
 
             try
             {
