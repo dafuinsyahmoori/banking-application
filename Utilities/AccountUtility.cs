@@ -23,7 +23,7 @@ namespace BankingApplication.Utilities
             return Task.FromResult(accountNumber.ToString());
         }
 
-        public Task<string> GenerateNewWithdrawalCodeAsync()
+        public Task<string> GenerateNewWithdrawalOrDepositCodeAsync()
         {
             var withdrawalCode = new StringBuilder(8);
 

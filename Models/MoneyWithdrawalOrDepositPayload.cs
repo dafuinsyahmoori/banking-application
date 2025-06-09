@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace BankingApplication.Models
 {
-    public class MoneyWithdrawalAndDepositPayload
+    public class MoneyWithdrawalOrDepositPayload
     {
         [RegularExpression(@"^\d{15}$")]
         [Required]

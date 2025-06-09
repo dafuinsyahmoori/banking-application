@@ -1,6 +1,6 @@
 namespace BankingApplication.Models
 {
-    public class MoneyWithdrawalCodePayload
+    public class MoneyWithdrawalOrDepositCodePayload
     {
         public string? Code { get; set; }
     }
