@@ -12,7 +12,7 @@ namespace BankingApplication.Controllers
     [ApiController]
     [Route("api/accounts")]
     [Authorize]
-    public class AccountController(IMongoCollection<Account> accountCollection, AccountUtility accountUtility, IMongoCollection<TransactionHistory> transactionHistoryCollection, IMongoCollection<Withdrawal> withdrawalCollection, [FromKeyedServices("withdrawalCodes")] Dictionary<string, Task> withdrawalCodes) : ControllerBase
+    public class AccountController(IMongoCollection<Account> accountCollection, AccountUtility accountUtility, IMongoCollection<TransactionHistory> transactionHistoryCollection, IMongoCollection<Withdrawal> withdrawalCollection, IMongoCollection<Deposit> depositCollection, [FromKeyedServices("withdrawalCodes")] Dictionary<string, Task> withdrawalCodes, [FromKeyedServices("depositCodes")] Dictionary<string, Task> depositCodes) : ControllerBase
     {
         [HttpGet]
         [Authorize(Policy = "AdminOnly")]
@@ -115,7 +115,7 @@ namespace BankingApplication.Controllers
 
         [HttpPost("do/transfer")]
         [Authorize(Policy = "UserOnly")]
-        public async Task<IActionResult> TransferMoneyAsync(MoneyTransferPayload moneyTransferPayload)
+        public async Task<IActionResult> TransferMoneyAsync(MoneyTransferPayload payload)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -123,7 +123,7 @@ namespace BankingApplication.Controllers
             try
             {
                 var senderAccount = await accountCollection.AsQueryable()
-                    .Where(a => a.Number == moneyTransferPayload.SenderAccountNumber)
+                    .Where(a => a.Number == payload.SenderAccountNumber)
                     .Select(a => new
                     {
                         a.Id,
@@ -131,19 +131,19 @@ namespace BankingApplication.Controllers
                     })
                     .FirstAsync();
 
-                if (senderAccount.Balance < moneyTransferPayload.Amount)
+                if (senderAccount.Balance < payload.Amount)
                     return BadRequest(new { Message = "balance is insufficient" });
 
                 var receiverAccountId = await accountCollection.AsQueryable()
-                    .Where(a => a.Number == moneyTransferPayload.ReceiverAccountNumber)
+                    .Where(a => a.Number == payload.ReceiverAccountNumber)
                     .Select(a => a.Id)
                     .FirstAsync();
 
-                var senderFilter = Builders<Account>.Filter.Eq(a => a.Number, moneyTransferPayload.SenderAccountNumber);
-                var receiverFilter = Builders<Account>.Filter.Eq(a => a.Number, moneyTransferPayload.ReceiverAccountNumber);
+                var senderFilter = Builders<Account>.Filter.Eq(a => a.Number, payload.SenderAccountNumber);
+                var receiverFilter = Builders<Account>.Filter.Eq(a => a.Number, payload.ReceiverAccountNumber);
 
-                var senderUpdate = Builders<Account>.Update.Inc(a => a.Balance, -moneyTransferPayload.Amount);
-                var receiverUpdate = Builders<Account>.Update.Inc(a => a.Balance, moneyTransferPayload.Amount);
+                var senderUpdate = Builders<Account>.Update.Inc(a => a.Balance, -payload.Amount);
+                var receiverUpdate = Builders<Account>.Update.Inc(a => a.Balance, payload.Amount);
 
                 await accountCollection.UpdateOneAsync(senderFilter, senderUpdate);
                 await accountCollection.UpdateOneAsync(receiverFilter, receiverUpdate);
@@ -153,16 +153,16 @@ namespace BankingApplication.Controllers
                     {
                         DateTime = DateTime.UtcNow,
                         Type = TransactionType.Transfer,
-                        Amount = -moneyTransferPayload.Amount,
-                        ReceiverAccountNumber = moneyTransferPayload.ReceiverAccountNumber,
+                        Amount = -payload.Amount,
+                        ReceiverAccountNumber = payload.ReceiverAccountNumber,
                         AccountId = senderAccount.Id
                     },
                     new()
                     {
                         DateTime = DateTime.UtcNow,
                         Type = TransactionType.Transfer,
-                        Amount = moneyTransferPayload.Amount,
-                        SenderAccountNumber = moneyTransferPayload.SenderAccountNumber,
+                        Amount = payload.Amount,
+                        SenderAccountNumber = payload.SenderAccountNumber,
                         AccountId = receiverAccountId
                     }
                 ]);
@@ -177,7 +177,7 @@ namespace BankingApplication.Controllers
 
         [HttpPost("do/get-withdrawal-code")]
         [Authorize(Policy = "UserOnly")]
-        public async Task<IActionResult> GetMoneyWithdrawalCodeAsync(MoneyWithdrawalAndDepositPayload moneyWithdrawalAndDepositPayload)
+        public async Task<IActionResult> GetMoneyWithdrawalCodeAsync(MoneyWithdrawalOrDepositPayload payload)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -185,18 +185,19 @@ namespace BankingApplication.Controllers
             try
             {
                 var account = await accountCollection.AsQueryable()
-                    .Where(a => a.Number == moneyWithdrawalAndDepositPayload.AccountNumber)
+                    .Where(a => a.Number == payload.AccountNumber)
                     .Select(a => new
                     {
                         a.Id,
+                        a.Number,
                         a.Balance
                     })
                     .FirstAsync();
 
-                if (account.Balance < moneyWithdrawalAndDepositPayload.Amount)
+                if (account.Balance < payload.Amount)
                     return BadRequest(new { Message = "balance is insufficient" });
 
-                var newCode = await accountUtility.GenerateNewWithdrawalCodeAsync();
+                var newCode = await accountUtility.GenerateNewWithdrawalOrDepositCodeAsync();
 
                 withdrawalCodes.Add(
                     newCode,
@@ -213,15 +214,24 @@ namespace BankingApplication.Controllers
                         })
                 );
 
-                await withdrawalCollection.InsertOneAsync(new()
+                var newWithdrawal = new Withdrawal
                 {
-                    Code = await accountUtility.GenerateNewWithdrawalCodeAsync(),
-                    Amount = moneyWithdrawalAndDepositPayload.Amount,
+                    Code = newCode,
+                    Amount = payload.Amount,
                     Due = DateTime.UtcNow.AddMinutes(60),
+                    Status = WithdrawalStatus.Pending,
                     AccountId = account.Id
-                });
+                };
 
-                return Created("/api/withdrawals", null);
+                await withdrawalCollection.InsertOneAsync(newWithdrawal);
+
+                return Created($"/api/accounts/{account.Number}/withdrawals/{newWithdrawal.Code}", new
+                {
+                    newWithdrawal.Code,
+                    newWithdrawal.Amount,
+                    Due = newWithdrawal.Due.ToLocalTime(),
+                    newWithdrawal.Status
+                });
             }
             catch (MongoException exception)
             {
@@ -230,8 +240,8 @@ namespace BankingApplication.Controllers
         }
 
         [HttpPost("do/withdraw")]
-        [Authorize(Policy = "UserOnly")]
-        public async Task<IActionResult> WithdrawMoneyAsync(MoneyWithdrawalCodePayload moneyWithdrawalCodePayload)
+        [Authorize(Policy = "AdminOnly")]
+        public async Task<IActionResult> WithdrawMoneyAsync(MoneyWithdrawalOrDepositCodePayload payload)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -239,7 +249,7 @@ namespace BankingApplication.Controllers
             try
             {
                 var withdrawal = await withdrawalCollection.AsQueryable()
-                    .Where(w => w.Code == moneyWithdrawalCodePayload.Code)
+                    .Where(w => w.Code == payload.Code)
                     .FirstAsync();
 
                 if (withdrawal.Status is WithdrawalStatus.Expired or WithdrawalStatus.Failed)
@@ -250,6 +260,7 @@ namespace BankingApplication.Controllers
                     .Select(a => new
                     {
                         a.Id,
+                        a.Number,
                         a.Balance
                     })
                     .FirstAsync();
@@ -277,7 +288,71 @@ namespace BankingApplication.Controllers
                     AccountId = account.Id
                 });
 
-                return Created("/api/transaction-histories", null);
+                return Created($"/api/accounts/{account.Number}/transaction-histories", null);
+            }
+            catch (MongoException exception)
+            {
+                return BadRequest(new { exception.Message, exception.Source });
+            }
+        }
+
+        [HttpPost("do/get-deposit-code")]
+        [Authorize(Policy = "UserOnly")]
+        public async Task<IActionResult> GetMoneyDepositCodeAsync(MoneyWithdrawalOrDepositPayload payload)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            try
+            {
+                if (payload.Amount < 10.00m)
+                    return BadRequest(new { Message = "minimum amount is 10.00" });
+
+                var account = await accountCollection.AsQueryable()
+                    .Where(a => a.Number == payload.AccountNumber)
+                    .Select(a => new
+                    {
+                        a.Id,
+                        a.Number,
+                        a.Balance
+                    })
+                    .FirstAsync();
+
+                var newCode = await accountUtility.GenerateNewWithdrawalOrDepositCodeAsync();
+
+                depositCodes.Add(
+                    newCode,
+                    Task.Delay(TimeSpan.FromMinutes(60))
+                        .ContinueWith(_ =>
+                        {
+                            var depositFilter = Builders<Deposit>.Filter.Eq(d => d.Code, newCode);
+                            var depositUpdate = Builders<Deposit>.Update.Set(d => d.Status, DepositStatus.Expired);
+
+                            depositCollection.UpdateOne(depositFilter, depositUpdate);
+                            depositCodes.Remove(newCode);
+
+                            Console.WriteLine($"Deposit code {newCode} has just been expired");
+                        })
+                );
+
+                var newDeposit = new Deposit
+                {
+                    Code = newCode,
+                    Amount = payload.Amount,
+                    Due = DateTime.UtcNow.AddMinutes(60),
+                    Status = DepositStatus.Pending,
+                    AccountId = account.Id
+                };
+
+                await depositCollection.InsertOneAsync(newDeposit);
+
+                return Created($"/api/accounts/{account.Number}/deposits/{newDeposit.Code}", new
+                {
+                    newDeposit.Code,
+                    newDeposit.Amount,
+                    Due = newDeposit.Due.ToLocalTime(),
+                    newDeposit.Status
+                });
             }
             catch (MongoException exception)
             {
@@ -286,33 +361,55 @@ namespace BankingApplication.Controllers
         }
 
         [HttpPost("do/deposit")]
-        [Authorize(Policy = "UserOnly")]
-        public async Task<IActionResult> DepositMoneyAsync(MoneyWithdrawalAndDepositPayload moneyWithdrawalAndDepositPayload)
+        [Authorize(Policy = "AdminOnly")]
+        public async Task<IActionResult> DepositMoneyAsync(MoneyWithdrawalOrDepositCodePayload payload)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
             try
             {
-                var accountId = await accountCollection.AsQueryable()
-                    .Where(a => a.Number == moneyWithdrawalAndDepositPayload.AccountNumber)
-                    .Select(a => a.Id)
+                var deposit = await depositCollection.AsQueryable()
+                    .Where(d => d.Code == payload.Code)
                     .FirstAsync();
 
-                var filter = Builders<Account>.Filter.Eq(a => a.Number, moneyWithdrawalAndDepositPayload.AccountNumber);
-                var update = Builders<Account>.Update.Inc(a => a.Balance, moneyWithdrawalAndDepositPayload.Amount);
+                if (deposit.Status is DepositStatus.Failed or DepositStatus.Expired)
+                    return BadRequest(new { Message = "code is invalid" });
 
-                await accountCollection.UpdateOneAsync(filter, update);
+                if (deposit.Amount < 10.00m)
+                    return BadRequest(new { Message = "minimum amount is 10.00" });
+
+                var account = await accountCollection.AsQueryable()
+                    .Where(a => a.Id == deposit.AccountId)
+                    .Select(a => new
+                    {
+                        a.Id,
+                        a.Number,
+                        a.Balance
+                    })
+                    .FirstAsync();
+
+                var accountFilter = Builders<Account>.Filter.Eq(a => a.Id, account.Id);
+                var accountUpdate = Builders<Account>.Update.Inc(a => a.Balance, deposit.Amount);
+
+                await accountCollection.UpdateOneAsync(accountFilter, accountUpdate);
+
+                var depositFilter = Builders<Deposit>.Filter.Eq(d => d.Code, deposit.Code);
+                var depositUpdate = Builders<Deposit>.Update.Set(d => d.Status, DepositStatus.Successful);
+
+                await depositCollection.UpdateOneAsync(depositFilter, depositUpdate);
+
+                depositCodes.Remove(deposit.Code!);
 
                 await transactionHistoryCollection.InsertOneAsync(new()
                 {
                     DateTime = DateTime.UtcNow,
                     Type = TransactionType.Deposit,
-                    Amount = moneyWithdrawalAndDepositPayload.Amount,
-                    AccountId = accountId
+                    Amount = deposit.Amount,
+                    AccountId = account.Id
                 });
 
-                return Created("/api/transaction-histories", null);
+                return Created($"/api/accounts/{account.Number}/transaction-histories", null);
             }
             catch (MongoException exception)
             {

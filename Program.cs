@@ -41,6 +41,7 @@ builder.Services.AddDatabaseInstance();
 builder.Services.AddDatabaseCollections();
 
 builder.Services.AddKeyedSingleton<Dictionary<string, Task>>("withdrawalCodes", []);
+builder.Services.AddKeyedSingleton<Dictionary<string, Task>>("depositCodes", []);
 
 builder.Services.AddMemoryCache();
 
@@ -67,6 +68,8 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new DateOnlyJsonConverter());
         options.JsonSerializerOptions.Converters.Add(new DateTimeJsonConverter());
         options.JsonSerializerOptions.Converters.Add(new TransactionTypeJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new WithdrawalStatusJsonConverter());
+        options.JsonSerializerOptions.Converters.Add(new DepositStatusJsonConverter());
     });
 
 builder.Services.AddHttpContextAccessor();
