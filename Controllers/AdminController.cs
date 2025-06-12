@@ -15,6 +15,8 @@ namespace BankingApplication.Controllers
     public class AdminController(IMongoCollection<Admin> adminCollection, IMemoryCache memoryCache, IPasswordHasher<object> passwordHasher) : ControllerBase
     {
         [HttpGet("me")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> GetMeAsync()
         {
             var idClaim = HttpContext.User.Claims.First(cl => cl.Type == "ID");
@@ -47,6 +49,8 @@ namespace BankingApplication.Controllers
         }
 
         [HttpPut("do/change-password")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> ChangePasswordAsync(PasswordChangeRequest passwordChangeRequest)
         {
             var idClaim = HttpContext.User.Claims.First(cl => cl.Type == "ID");

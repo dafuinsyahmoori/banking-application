@@ -17,6 +17,8 @@ namespace BankingApplication.Controllers
     public class AuthenticationController(IMongoCollection<User> userCollection, IMongoCollection<Admin> adminCollection, IMongoCollection<Account> accountCollection, IPasswordHasher<object> passwordHasher, AccountUtility accountUtility, AuthenticationUtility authenticationUtility, IMemoryCache memoryCache) : ControllerBase
     {
         [HttpPost("user/sign-up")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> SignUpUserAsync(UserForm userForm)
         {
             if (!ModelState.IsValid)
@@ -56,6 +58,8 @@ namespace BankingApplication.Controllers
         }
 
         [HttpPost("user/sign-in")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> SignInUserAsync(UserCredential userCredential)
         {
             if (!ModelState.IsValid)
@@ -91,6 +95,8 @@ namespace BankingApplication.Controllers
         }
 
         [HttpPost("admin/sign-up")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> SignUpAdminAsync(AdminForm adminForm)
         {
             if (!ModelState.IsValid)
@@ -119,6 +125,8 @@ namespace BankingApplication.Controllers
         }
 
         [HttpPost("admin/sign-in")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> SignInAdminAsync(AdminCredential adminCredential)
         {
             if (!ModelState.IsValid)
@@ -155,6 +163,7 @@ namespace BankingApplication.Controllers
 
         [HttpPost("sign-out")]
         [Authorize]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
         public async Task<IActionResult> SignOutAsync()
         {
             var idClaim = HttpContext.User.Claims.First(cl => cl.Type == "ID");

@@ -48,7 +48,11 @@ builder.Services.AddMemoryCache();
 builder.Services.AddRouting(options => options.ConstraintMap.Add("accountNumber", typeof(AccountNumberRouteConstraint)));
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie();
+    .AddCookie(options =>
+    {
+        options.Cookie.Name = "AUTH_COOKIE";
+        options.Cookie.SameSite = builder.Environment.IsDevelopment() ? SameSiteMode.None : SameSiteMode.Lax;
+    });
 
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("UserOnly", policy =>
@@ -72,6 +76,9 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new DepositStatusJsonConverter());
     });
 
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, UnauthorizedAuthorizationMiddlewareResultHandler>();
@@ -81,6 +88,12 @@ builder.Services.AddTransient<IPasswordHasher<object>, PasswordHasher<object>>()
 builder.Services.AddUtilities();
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.UseAuthentication();
 

@@ -16,6 +16,8 @@ namespace BankingApplication.Controllers
     {
         [HttpGet]
         [Authorize(Policy = "AdminOnly")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public IActionResult GetAllUsers()
         {
             try
@@ -43,6 +45,8 @@ namespace BankingApplication.Controllers
 
         [HttpGet("me")]
         [Authorize(Policy = "UserOnly")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> GetMeAsync()
         {
             var idClaim = HttpContext.User.Claims.First(cl => cl.Type == "ID");
@@ -80,6 +84,8 @@ namespace BankingApplication.Controllers
 
         [HttpGet("me/accounts")]
         [Authorize(Policy = "UserOnly")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public IActionResult GetMyAccounts()
         {
             var idClaim = HttpContext.User.Claims.First(cl => cl.Type == "ID");
@@ -106,6 +112,8 @@ namespace BankingApplication.Controllers
 
         [HttpPut("do/change-password")]
         [Authorize(Policy = "UserOnly")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> ChangePasswordAsync(PasswordChangeRequest passwordChangeRequest)
         {
             var idClaim = HttpContext.User.Claims.First(cl => cl.Type == "ID");

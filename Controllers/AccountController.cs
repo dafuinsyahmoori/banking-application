@@ -16,6 +16,8 @@ namespace BankingApplication.Controllers
     {
         [HttpGet]
         [Authorize(Policy = "AdminOnly")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public IActionResult GetAllAccounts()
         {
             try
@@ -38,6 +40,8 @@ namespace BankingApplication.Controllers
         }
 
         [HttpGet("by/number/{number:accountNumber}")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> GetAccountByNumberAsync(string number)
         {
             try
@@ -60,6 +64,8 @@ namespace BankingApplication.Controllers
         }
 
         [HttpGet("by/number/{number:accountNumber}/transaction-histories")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> GetTransactionHistoriesByAccountNumber(string number)
         {
             try
@@ -92,6 +98,8 @@ namespace BankingApplication.Controllers
 
         [HttpPost("do/create")]
         [Authorize(Policy = "UserOnly")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> CreateNewAccountAsync()
         {
             var userIdClaim = HttpContext.User.Claims.First(cl => cl.Type == "ID");
@@ -115,6 +123,8 @@ namespace BankingApplication.Controllers
 
         [HttpPost("do/transfer")]
         [Authorize(Policy = "UserOnly")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> TransferMoneyAsync(MoneyTransferPayload payload)
         {
             if (!ModelState.IsValid)
@@ -127,6 +137,7 @@ namespace BankingApplication.Controllers
                     .Select(a => new
                     {
                         a.Id,
+                        a.Number,
                         a.Balance
                     })
                     .FirstAsync();
@@ -167,7 +178,7 @@ namespace BankingApplication.Controllers
                     }
                 ]);
 
-                return Created("/api/transaction-histories", null);
+                return Created($"/api/accounts/{senderAccount.Number}/transaction-histories", null);
             }
             catch (MongoException exception)
             {
@@ -177,6 +188,8 @@ namespace BankingApplication.Controllers
 
         [HttpPost("do/get-withdrawal-code")]
         [Authorize(Policy = "UserOnly")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> GetMoneyWithdrawalCodeAsync(MoneyWithdrawalOrDepositPayload payload)
         {
             if (!ModelState.IsValid)
@@ -201,7 +214,7 @@ namespace BankingApplication.Controllers
 
                 withdrawalCodes.Add(
                     newCode,
-                    Task.Delay(TimeSpan.FromMinutes(60))
+                    Task.Delay(TimeSpan.FromSeconds(30))
                         .ContinueWith(_ =>
                         {
                             var withdrawalFilter = Builders<Withdrawal>.Filter.Eq(w => w.Code, newCode);
@@ -218,7 +231,7 @@ namespace BankingApplication.Controllers
                 {
                     Code = newCode,
                     Amount = payload.Amount,
-                    Due = DateTime.UtcNow.AddMinutes(60),
+                    Due = DateTime.UtcNow.AddSeconds(30),
                     Status = WithdrawalStatus.Pending,
                     AccountId = account.Id
                 };
@@ -241,6 +254,8 @@ namespace BankingApplication.Controllers
 
         [HttpPost("do/withdraw")]
         [Authorize(Policy = "AdminOnly")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> WithdrawMoneyAsync(MoneyWithdrawalOrDepositCodePayload payload)
         {
             if (!ModelState.IsValid)
@@ -298,6 +313,8 @@ namespace BankingApplication.Controllers
 
         [HttpPost("do/get-deposit-code")]
         [Authorize(Policy = "UserOnly")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> GetMoneyDepositCodeAsync(MoneyWithdrawalOrDepositPayload payload)
         {
             if (!ModelState.IsValid)
@@ -362,6 +379,8 @@ namespace BankingApplication.Controllers
 
         [HttpPost("do/deposit")]
         [Authorize(Policy = "AdminOnly")]
+        [ProducesResponseType(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> DepositMoneyAsync(MoneyWithdrawalOrDepositCodePayload payload)
         {
             if (!ModelState.IsValid)
