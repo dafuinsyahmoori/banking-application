@@ -37,4 +37,4 @@ dotnet run
 After running, open your browser to access the Swagger UI:
 
 ```bash
-http://localhost:5000/swagger
+http://localhost:5224/swagger
