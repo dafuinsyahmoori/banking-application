@@ -28,9 +28,30 @@ This project supports core banking operations such as **sign in**, **deposit**, 
 
 Make sure you have [.NET SDK](https://dotnet.microsoft.com/en-us/download) installed.
 
+Clone the project:
 ```bash
 git clone https://github.com/dafuinsyahmoori/banking-application.git BankingApplication
 cd BankingApplication
+```
+
+### 🛠️ Configuration
+
+Before running the project, make sure your appsettings.json (or appsettings.{Environment}.json for specific environment) file is properly configured. See appsettings.Example.json for a basic example
+
+#### 📝 Notes:
+
+- Change the ConnectionStrings.BankingApplication string to match your local database configuration.
+
+Or you can use User Secret (highly recommended, only for Development Environment)
+
+```bash
+dotnet user-secrets init
+dotnet user-secrets set "ConnectionStrings:BankingApplication" "Your Connection String"
+```
+
+Run the project:
+
+```bash
 dotnet run
 ```
 
