@@ -36,13 +36,13 @@ cd BankingApplication
 
 ### 🛠️ Configuration
 
-Before running the project, make sure your appsettings.json (or appsettings.{Environment}.json for specific environment) file is properly configured. See appsettings.Example.json for a basic example
+Before running the project, make sure your appsettings.json (or appsettings.{Environment}.json for specific environment) file is properly configured. See appsettings.Example.json for a basic example.
 
 #### 📝 Notes:
 
 - Change the ConnectionStrings.BankingApplication string to match your local database configuration.
 
-Or you can use User Secret (highly recommended, only for Development Environment)
+Or you can use User Secret (highly recommended, only for Development Environment):
 
 ```bash
 dotnet user-secrets init
