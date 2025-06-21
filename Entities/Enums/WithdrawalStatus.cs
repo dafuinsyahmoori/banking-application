@@ -3,7 +3,7 @@ namespace BankingApplication.Entities.Enums
     public enum WithdrawalStatus
     {
         Pending,
-        Successful,
+        Succeeded,
         Failed,
         Expired
     }

@@ -214,7 +214,7 @@ namespace BankingApplication.Controllers
 
                 withdrawalCodes.Add(
                     newCode,
-                    Task.Delay(TimeSpan.FromSeconds(30))
+                    Task.Delay(TimeSpan.FromMinutes(60))
                         .ContinueWith(_ =>
                         {
                             var withdrawalFilter = Builders<Withdrawal>.Filter.Eq(w => w.Code, newCode);
@@ -231,7 +231,7 @@ namespace BankingApplication.Controllers
                 {
                     Code = newCode,
                     Amount = payload.Amount,
-                    Due = DateTime.UtcNow.AddSeconds(30),
+                    Due = DateTime.UtcNow.AddMinutes(60),
                     Status = WithdrawalStatus.Pending,
                     AccountId = account.Id
                 };
@@ -289,7 +289,7 @@ namespace BankingApplication.Controllers
                 await accountCollection.UpdateOneAsync(accountFilter, accountUpdate);
 
                 var withdrawalFilter = Builders<Withdrawal>.Filter.Eq(w => w.Code, withdrawal.Code);
-                var withdrawalUpdate = Builders<Withdrawal>.Update.Set(w => w.Status, WithdrawalStatus.Successful);
+                var withdrawalUpdate = Builders<Withdrawal>.Update.Set(w => w.Status, WithdrawalStatus.Succeeded);
 
                 await withdrawalCollection.UpdateOneAsync(withdrawalFilter, withdrawalUpdate);
 
@@ -414,7 +414,7 @@ namespace BankingApplication.Controllers
                 await accountCollection.UpdateOneAsync(accountFilter, accountUpdate);
 
                 var depositFilter = Builders<Deposit>.Filter.Eq(d => d.Code, deposit.Code);
-                var depositUpdate = Builders<Deposit>.Update.Set(d => d.Status, DepositStatus.Successful);
+                var depositUpdate = Builders<Deposit>.Update.Set(d => d.Status, DepositStatus.Succeeded);
 
                 await depositCollection.UpdateOneAsync(depositFilter, depositUpdate);
 

@@ -3,7 +3,7 @@ namespace BankingApplication.Entities.Enums
     public enum DepositStatus
     {
         Pending,
-        Successful,
+        Succeeded,
         Failed,
         Expired
     }
