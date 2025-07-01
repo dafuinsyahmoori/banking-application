@@ -267,7 +267,7 @@ namespace BankingApplication.Controllers
                     .Where(w => w.Code == payload.Code)
                     .FirstAsync();
 
-                if (withdrawal.Status is WithdrawalStatus.Expired or WithdrawalStatus.Failed)
+                if (withdrawal.Status is WithdrawalStatus.Expired or WithdrawalStatus.Failed or WithdrawalStatus.Succeeded)
                     return BadRequest(new { Message = "code is invalid" });
 
                 var account = await accountCollection.AsQueryable()
