@@ -40,8 +40,8 @@ builder.Services.AddDatabaseClient(builder.Configuration);
 builder.Services.AddDatabaseInstance();
 builder.Services.AddDatabaseCollections();
 
-builder.Services.AddKeyedSingleton<Dictionary<string, Task>>("withdrawalCodes", []);
-builder.Services.AddKeyedSingleton<Dictionary<string, Task>>("depositCodes", []);
+builder.Services.AddPendingWithdrawalCodes();
+builder.Services.AddPendingDepositCodes();
 
 builder.Services.AddMemoryCache();
 
