@@ -1,6 +1,7 @@
 using BankingApplication.Entities;
 using BankingApplication.Entities.Enums;
 using MongoDB.Driver;
+using MongoDB.Driver.Linq;
 
 namespace BankingApplication.DependencyRegistrations
 {
@@ -11,6 +12,25 @@ namespace BankingApplication.DependencyRegistrations
             return services.AddKeyedSingleton("depositCodes", (serviceProvider, _) =>
             {
                 var collection = serviceProvider.GetRequiredService<IMongoCollection<Deposit>>();
+
+                // var deposits = collection.AsQueryable()
+                //     .Where(d => d.Status == DepositStatus.Pending)
+                //     .ToArray();
+
+                // foreach (var deposit in deposits)
+                // {
+                //     var timeSpan = deposit.Due - DateTime.UtcNow;
+
+                //     if (timeSpan.TotalSeconds <= 0)
+                //     {
+                //         var depositFilter = Builders<Deposit>.Filter.Eq(d => d.Code, deposit.Code);
+                //         var depositUpdate = Builders<Deposit>.Update.Set(d => d.Status, DepositStatus.Expired);
+
+                //         collection.UpdateOne(depositFilter, depositUpdate);
+
+                //         deposit.Status = DepositStatus.Expired;
+                //     }
+                // }
 
                 var depositCodes = collection.AsQueryable()
                     .Where(d => d.Status == DepositStatus.Pending)
