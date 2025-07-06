@@ -48,11 +48,7 @@ builder.Services.AddMemoryCache();
 builder.Services.AddRouting(options => options.ConstraintMap.Add("accountNumber", typeof(AccountNumberRouteConstraint)));
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options =>
-    {
-        options.Cookie.Name = "AUTH_COOKIE";
-        options.Cookie.SameSite = builder.Environment.IsDevelopment() ? SameSiteMode.None : SameSiteMode.Lax;
-    });
+    .AddCookie();
 
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("UserOnly", policy =>
