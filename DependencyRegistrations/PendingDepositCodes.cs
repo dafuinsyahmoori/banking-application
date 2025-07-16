@@ -13,35 +13,29 @@ namespace BankingApplication.DependencyRegistrations
             {
                 var collection = serviceProvider.GetRequiredService<IMongoCollection<Deposit>>();
 
-                // var deposits = collection.AsQueryable()
-                //     .Where(d => d.Status == DepositStatus.Pending)
-                //     .ToArray();
-
-                // foreach (var deposit in deposits)
-                // {
-                //     var timeSpan = deposit.Due - DateTime.UtcNow;
-
-                //     if (timeSpan.TotalSeconds <= 0)
-                //     {
-                //         var depositFilter = Builders<Deposit>.Filter.Eq(d => d.Code, deposit.Code);
-                //         var depositUpdate = Builders<Deposit>.Update.Set(d => d.Status, DepositStatus.Expired);
-
-                //         collection.UpdateOne(depositFilter, depositUpdate);
-
-                //         deposit.Status = DepositStatus.Expired;
-                //     }
-                // }
-
-                var depositCodes = collection.AsQueryable()
+                var deposits = collection.AsQueryable()
                     .Where(d => d.Status == DepositStatus.Pending)
+                    .ToArray();
+
+                foreach (var deposit in deposits)
+                {
+                    var delay = deposit.Due - DateTime.UtcNow;
+
+                    if (delay.TotalSeconds <= 0)
+                    {
+                        var depositFilter = Builders<Deposit>.Filter.Eq(d => d.Code, deposit.Code);
+                        var depositUpdate = Builders<Deposit>.Update.Set(d => d.Status, DepositStatus.Expired);
+
+                        collection.UpdateOne(depositFilter, depositUpdate);
+
+                        deposit.Status = DepositStatus.Expired;
+                    }
+                }
+
+                var depositCodes = deposits.Where(d => d.Status == DepositStatus.Pending)
                     .ToDictionary(
                         d => d.Code!,
-                        d =>
-                        {
-                            var delay = d.Due - DateTime.UtcNow;
-
-                            return Task.Delay(delay);
-                        }
+                        d => Task.Delay(d.Due - DateTime.UtcNow)
                     );
 
                 foreach (var code in depositCodes.Keys)

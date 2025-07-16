@@ -66,7 +66,7 @@ namespace BankingApplication.Controllers
         [HttpGet("by/number/{number:accountNumber}/transaction-histories")]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> GetTransactionHistoriesByAccountNumber(string number)
+        public async Task<IActionResult> GetTransactionHistoriesByAccountNumberAsync(string number)
         {
             try
             {
@@ -89,6 +89,70 @@ namespace BankingApplication.Controllers
                     .ToArray();
 
                 return Ok(transactionHistories);
+            }
+            catch (MongoQueryException exception)
+            {
+                return BadRequest(new { exception.Message, exception.Source });
+            }
+        }
+
+        [HttpGet("by/number/{number:accountNumber}/withdrawals")]
+        [Authorize(Policy = "AdminOnly")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GetWithdrawalsByAccountNumberAsync(string number)
+        {
+            try
+            {
+                var accountId = await accountCollection.AsQueryable()
+                    .Where(a => a.Number == number)
+                    .Select(a => a.Id)
+                    .FirstAsync();
+
+                var withdrawals = withdrawalCollection.AsQueryable()
+                    .Where(w => w.AccountId == accountId)
+                    .Select(w => new
+                    {
+                        w.Code,
+                        w.Amount,
+                        Due = w.Due.ToLocalTime(),
+                        w.Status
+                    })
+                    .ToArray();
+
+                return Ok(withdrawals);
+            }
+            catch (MongoQueryException exception)
+            {
+                return BadRequest(new { exception.Message, exception.Source });
+            }
+        }
+
+        [HttpGet("by/number/{number:accountNumber}/deposits")]
+        [Authorize(Policy = "AdminOnly")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GetDepositCodesByAccountNumberAsync(string number)
+        {
+            try
+            {
+                var accountId = await accountCollection.AsQueryable()
+                    .Where(a => a.Number == number)
+                    .Select(a => a.Id)
+                    .FirstAsync();
+
+                var deposits = depositCollection.AsQueryable()
+                    .Where(d => d.AccountId == accountId)
+                    .Select(d => new
+                    {
+                        d.Code,
+                        d.Amount,
+                        Due = d.Due.ToLocalTime(),
+                        d.Status
+                    })
+                    .ToArray();
+
+                return Ok(deposits);
             }
             catch (MongoQueryException exception)
             {
