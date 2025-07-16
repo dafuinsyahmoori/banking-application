@@ -12,16 +12,29 @@ namespace BankingApplication.DependencyRegistrations
             {
                 var collection = serviceProvider.GetRequiredService<IMongoCollection<Withdrawal>>();
 
-                var withdrawalCodes = collection.AsQueryable()
+                var withdrawals = collection.AsQueryable()
                     .Where(w => w.Status == WithdrawalStatus.Pending)
-                    .ToDictionary(
-                        w => w.Code!,
-                        w =>
-                        {
-                            var delay = w.Due - DateTime.UtcNow;
+                    .ToArray();
 
-                            return Task.Delay(delay);
-                        }
+                foreach (var withdrawal in withdrawals)
+                {
+                    var delay = withdrawal.Due - DateTime.UtcNow;
+
+                    if (delay.TotalSeconds <= 0)
+                    {
+                        var depositFilter = Builders<Withdrawal>.Filter.Eq(w => w.Code, withdrawal.Code);
+                        var depositUpdate = Builders<Withdrawal>.Update.Set(w => w.Status, WithdrawalStatus.Expired);
+
+                        collection.UpdateOne(depositFilter, depositUpdate);
+
+                        withdrawal.Status = WithdrawalStatus.Expired;
+                    }
+                }
+
+                var withdrawalCodes = withdrawals.Where(w => w.Status == WithdrawalStatus.Pending)
+                    .ToDictionary(
+                        d => d.Code!,
+                        d => Task.Delay(d.Due - DateTime.UtcNow)
                     );
 
                 foreach (var code in withdrawalCodes.Keys)
