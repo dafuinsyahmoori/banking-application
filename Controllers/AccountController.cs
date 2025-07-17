@@ -386,7 +386,7 @@ namespace BankingApplication.Controllers
 
             try
             {
-                if (payload.Amount < 10.00m)
+                if (payload.Amount < 100000)
                     return BadRequest(new { Message = "minimum amount is 10.00" });
 
                 var account = await accountCollection.AsQueryable()
@@ -459,7 +459,7 @@ namespace BankingApplication.Controllers
                 if (deposit.Status is DepositStatus.Failed or DepositStatus.Expired)
                     return BadRequest(new { Message = "code is invalid" });
 
-                if (deposit.Amount < 10.00m)
+                if (deposit.Amount < 100000)
                     return BadRequest(new { Message = "minimum amount is 10.00" });
 
                 var account = await accountCollection.AsQueryable()

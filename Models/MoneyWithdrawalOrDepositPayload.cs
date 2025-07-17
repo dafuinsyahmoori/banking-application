@@ -7,7 +7,8 @@ namespace BankingApplication.Models
         [RegularExpression(@"^\d{15}$")]
         [Required]
         public string? AccountNumber { get; set; }
+        [Range(100000, double.PositiveInfinity)]
         [Required]
-        public decimal Amount { get; set; }
+        public int Amount { get; set; }
     }
 }

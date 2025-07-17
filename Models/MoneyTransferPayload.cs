@@ -11,6 +11,6 @@ namespace BankingApplication.Models
         [Required]
         public string? ReceiverAccountNumber { get; set; }
         [Required]
-        public decimal Amount { get; set; }
+        public int Amount { get; set; }
     }
 }
