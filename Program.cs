@@ -45,7 +45,11 @@ builder.Services.AddPendingDepositCodes();
 
 builder.Services.AddMemoryCache();
 
-builder.Services.AddRouting(options => options.ConstraintMap.Add("accountNumber", typeof(AccountNumberRouteConstraint)));
+builder.Services.AddRouting(options =>
+{
+    options.ConstraintMap.Add("accountNumber", typeof(AccountNumberRouteConstraint));
+    options.ConstraintMap.Add("withdrawalOrDepositCode", typeof(WithdrawalOrDepositCodeRouteConstraint));
+});
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie();

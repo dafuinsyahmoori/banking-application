@@ -6,7 +6,7 @@ namespace BankingApplication.Entities
     public class Withdrawal
     {
         public string? Code { get; set; }
-        public decimal Amount { get; set; }
+        public int Amount { get; set; }
         public DateTime Due { get; set; }
         public WithdrawalStatus Status { get; set; }
         public ObjectId AccountId { get; set; }

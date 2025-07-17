@@ -6,7 +6,7 @@ namespace BankingApplication.Entities
     {
         public ObjectId Id { get; set; }
         public string? Number { get; set; }
-        public decimal Balance { get; set; }
+        public int Balance { get; set; }
         public Guid UserId { get; set; }
     }
 }
