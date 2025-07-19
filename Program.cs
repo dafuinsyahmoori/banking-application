@@ -1,40 +1,17 @@
 using BankingApplication.AuthorizationMiddlewareResultHandlers;
-using BankingApplication.BsonSerializers;
+using BankingApplication.Configurations;
 using BankingApplication.DependencyRegistrations;
-using BankingApplication.Entities;
 using BankingApplication.JsonConverters;
 using BankingApplication.RouteConstraints;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization;
-using MongoDB.Bson.Serialization.Conventions;
-using MongoDB.Bson.Serialization.Serializers;
-
-ConventionRegistry.Register("camelCase", new ConventionPack { new CamelCaseElementNameConvention(), new EnumRepresentationConvention(BsonType.String) }, _ => true);
-
-BsonSerializer.RegisterSerializer(new GuidSerializer(GuidRepresentation.Standard));
-BsonSerializer.RegisterSerializer(new DateOnlyBsonSerializer());
-BsonSerializer.RegisterSerializer(new DateTimeBsonSerializer());
-
-BsonClassMap.RegisterClassMap<User>(classMap =>
-{
-    classMap.AutoMap();
-
-    classMap.MapMember(u => u.MiddleName).SetIgnoreIfNull(true);
-    classMap.MapMember(u => u.LastName).SetIgnoreIfNull(true);
-});
-
-BsonClassMap.RegisterClassMap<TransactionHistory>(classMap =>
-{
-    classMap.AutoMap();
-
-    classMap.MapMember(u => u.ReceiverAccountNumber).SetIgnoreIfNull(true);
-    classMap.MapMember(u => u.SenderAccountNumber).SetIgnoreIfNull(true);
-});
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration.ConfigureConventionRegistries();
+builder.Configuration.ConfigureBsonSerializers();
+builder.Configuration.ConfigureBsonClassMaps();
 
 builder.Services.AddDatabaseClient(builder.Configuration);
 builder.Services.AddDatabaseInstance();
