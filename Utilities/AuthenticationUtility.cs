@@ -6,12 +6,13 @@ namespace BankingApplication.Utilities
 {
     public class AuthenticationUtility(IHttpContextAccessor httpContextAccessor)
     {
-        public async Task SignInAsync(string id, string role)
+        public async Task SignInAsync(string id, string role, string emailOrUsername)
         {
             var claims = new Claim[]
             {
                 new("Role", role),
-                new("ID", id)
+                new("ID", id),
+                new(ClaimTypes.NameIdentifier, emailOrUsername)
             };
 
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);

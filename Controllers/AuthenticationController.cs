@@ -47,7 +47,7 @@ namespace BankingApplication.Controllers
                     UserId = newUserId
                 });
 
-                await authenticationUtility.SignInAsync(newUserId.ToString(), "User");
+                await authenticationUtility.SignInAsync(newUserId.ToString(), "User", userForm.Username!);
 
                 return Created("/api/users/me", null);
             }
@@ -72,6 +72,7 @@ namespace BankingApplication.Controllers
                     .Select(u => new
                     {
                         u.Id,
+                        u.Username,
                         u.Password
                     })
                     .FirstOrDefaultAsync();
@@ -84,7 +85,7 @@ namespace BankingApplication.Controllers
                 if (passwordVerificationResult is PasswordVerificationResult.Failed)
                     return BadRequest(new { Message = "password is not correct" });
 
-                await authenticationUtility.SignInAsync(user.Id.ToString(), "User");
+                await authenticationUtility.SignInAsync(user.Id.ToString(), "User", user.Username!);
 
                 return Ok();
             }
@@ -114,7 +115,7 @@ namespace BankingApplication.Controllers
                     Password = newHashedPassword
                 });
 
-                await authenticationUtility.SignInAsync(newAdminId.ToString(), "Admin");
+                await authenticationUtility.SignInAsync(newAdminId.ToString(), "Admin", adminForm.Email!);
 
                 return Created("/api/admins/me", null);
             }
@@ -139,6 +140,7 @@ namespace BankingApplication.Controllers
                     .Select(a => new
                     {
                         a.Id,
+                        a.Email,
                         a.Password
                     })
                     .FirstOrDefaultAsync();
@@ -151,7 +153,7 @@ namespace BankingApplication.Controllers
                 if (passwordVerificationResult is PasswordVerificationResult.Failed)
                     return BadRequest(new { Message = "password is not correct" });
 
-                await authenticationUtility.SignInAsync(admin.Id.ToString(), "Admin");
+                await authenticationUtility.SignInAsync(admin.Id.ToString(), "Admin", admin.Email!);
 
                 return Ok();
             }
