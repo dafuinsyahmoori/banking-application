@@ -14,6 +14,8 @@ namespace BankingApplication.Controllers
     [Authorize]
     public class AccountController(IMongoCollection<Account> accountCollection, AccountUtility accountUtility, IMongoCollection<TransactionHistory> transactionHistoryCollection, IMongoCollection<Withdrawal> withdrawalCollection, IMongoCollection<Deposit> depositCollection, [FromKeyedServices("withdrawalCodes")] Dictionary<string, Task> withdrawalCodes, [FromKeyedServices("depositCodes")] Dictionary<string, Task> depositCodes) : ControllerBase
     {
+        private const int ADMIN_FEE = 2500;
+
         [HttpGet]
         [Authorize(Policy = "AdminOnly")]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -206,7 +208,9 @@ namespace BankingApplication.Controllers
                     })
                     .FirstAsync();
 
-                if (senderAccount.Balance < payload.Amount)
+                var amountTotal = payload.Amount + ADMIN_FEE;
+
+                if (senderAccount.Balance < amountTotal)
                     return BadRequest(new { Message = "balance is insufficient" });
 
                 var receiverAccountId = await accountCollection.AsQueryable()
@@ -217,7 +221,7 @@ namespace BankingApplication.Controllers
                 var senderFilter = Builders<Account>.Filter.Eq(a => a.Number, payload.SenderAccountNumber);
                 var receiverFilter = Builders<Account>.Filter.Eq(a => a.Number, payload.ReceiverAccountNumber);
 
-                var senderUpdate = Builders<Account>.Update.Inc(a => a.Balance, -payload.Amount);
+                var senderUpdate = Builders<Account>.Update.Inc(a => a.Balance, amountTotal);
                 var receiverUpdate = Builders<Account>.Update.Inc(a => a.Balance, payload.Amount);
 
                 await accountCollection.UpdateOneAsync(senderFilter, senderUpdate);
@@ -386,9 +390,6 @@ namespace BankingApplication.Controllers
 
             try
             {
-                if (payload.Amount < 100000)
-                    return BadRequest(new { Message = "minimum amount is 10.00" });
-
                 var account = await accountCollection.AsQueryable()
                     .Where(a => a.Number == payload.AccountNumber)
                     .Select(a => new
@@ -460,7 +461,7 @@ namespace BankingApplication.Controllers
                     return BadRequest(new { Message = "code is invalid" });
 
                 if (deposit.Amount < 100000)
-                    return BadRequest(new { Message = "minimum amount is 10.00" });
+                    return BadRequest(new { Message = "minimum amount is 100000" });
 
                 var account = await accountCollection.AsQueryable()
                     .Where(a => a.Id == deposit.AccountId)

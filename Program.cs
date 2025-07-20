@@ -59,12 +59,14 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddSingleton<IAuthorizationMiddlewareResultHandler, UnauthorizedAuthorizationMiddlewareResultHandler>();
-
 builder.Services.AddTransient<IPasswordHasher<object>, PasswordHasher<object>>();
 
 builder.Services.AddUtilities();
 
 var app = builder.Build();
+
+app.Services.GetRequiredKeyedService<Dictionary<string, Task>>("depositCodes");
+app.Services.GetRequiredKeyedService<Dictionary<string, Task>>("withdrawalCodes");
 
 if (app.Environment.IsDevelopment())
 {

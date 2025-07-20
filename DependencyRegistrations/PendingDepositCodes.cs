@@ -48,7 +48,7 @@ namespace BankingApplication.DependencyRegistrations
                         collection.UpdateOne(depositFilter, depositUpdate);
                         depositCodes.Remove(code);
 
-                        Console.WriteLine($"Withdrawal code {code} has just been expired");
+                        Console.WriteLine($"Deposit code {code} has just been expired");
                     });
                 }
 

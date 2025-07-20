@@ -10,6 +10,7 @@ namespace BankingApplication.Models
         [RegularExpression(@"^\d{15}$")]
         [Required]
         public string? ReceiverAccountNumber { get; set; }
+        [Range(10000, double.PositiveInfinity)]
         [Required]
         public int Amount { get; set; }
     }
