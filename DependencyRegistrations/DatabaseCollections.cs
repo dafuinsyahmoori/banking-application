@@ -65,12 +65,54 @@ namespace BankingApplication.DependencyRegistrations
                 .AddSingleton(serviceProvider =>
                 {
                     var database = serviceProvider.GetRequiredService<IMongoDatabase>();
-                    return database.GetCollection<Withdrawal>("withdrawals");
+                    var collection = database.GetCollection<Withdrawal>("withdrawals");
+
+                    var existingIndexes = collection.Indexes.List();
+
+                    var doesIndexExist = existingIndexes
+                        .ToList()
+                        .Any(
+                            index => index.Any(
+                                el => el.Name == "name" && el.Value.IsString && el.Value.AsString.Contains("code")
+                            )
+                        );
+
+                    if (doesIndexExist)
+                        return collection;
+
+                    var indexKey = Builders<Withdrawal>.IndexKeys.Ascending(w => w.Code);
+
+                    var indexModel = new CreateIndexModel<Withdrawal>(indexKey, new() { Unique = true });
+
+                    collection.Indexes.CreateOne(indexModel);
+
+                    return collection;
                 })
                 .AddSingleton(serviceProvider =>
                 {
                     var database = serviceProvider.GetRequiredService<IMongoDatabase>();
-                    return database.GetCollection<Deposit>("deposits");
+                    var collection = database.GetCollection<Deposit>("deposits");
+
+                    var existingIndexes = collection.Indexes.List();
+
+                    var doesIndexExist = existingIndexes
+                        .ToList()
+                        .Any(
+                            index => index.Any(
+                                el => el.Name == "name" && el.Value.IsString && el.Value.AsString.Contains("code")
+                            )
+                        );
+
+                    if (doesIndexExist)
+                        return collection;
+
+                    var indexKey = Builders<Deposit>.IndexKeys.Ascending(d => d.Code);
+
+                    var indexModel = new CreateIndexModel<Deposit>(indexKey, new() { Unique = true });
+
+                    collection.Indexes.CreateOne(indexModel);
+
+                    return collection;
                 })
                 .AddSingleton(serviceProvider =>
                 {
@@ -102,6 +144,16 @@ namespace BankingApplication.DependencyRegistrations
                     collection.Indexes.CreateOne(indexModel);
 
                     return collection;
+                })
+                .AddSingleton(serviceProvider =>
+                {
+                    var database = serviceProvider.GetRequiredService<IMongoDatabase>();
+                    return database.GetCollection<ComplaintRequest>("complaintRequests");
+                })
+                .AddSingleton(serviceProvider =>
+                {
+                    var database = serviceProvider.GetRequiredService<IMongoDatabase>();
+                    return database.GetCollection<ComplaintResponse>("complaintResponses");
                 });
         }
     }
