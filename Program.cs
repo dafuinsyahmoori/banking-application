@@ -1,6 +1,7 @@
 using BankingApplication.AuthorizationMiddlewareResultHandlers;
 using BankingApplication.Configurations;
 using BankingApplication.DependencyRegistrations;
+using BankingApplication.Hubs;
 using BankingApplication.JsonConverters;
 using BankingApplication.RouteConstraints;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -53,6 +54,8 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new DepositStatusJsonConverter());
     });
 
+builder.Services.AddSignalR();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -79,5 +82,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapHub<NotificationHub>("notifications");
 
 app.Run();

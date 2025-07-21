@@ -1,9 +1,11 @@
 using BankingApplication.Entities;
 using BankingApplication.Entities.Enums;
+using BankingApplication.Hubs;
 using BankingApplication.Models;
 using BankingApplication.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 using MongoDB.Driver;
 using MongoDB.Driver.Linq;
 
@@ -12,9 +14,9 @@ namespace BankingApplication.Controllers
     [ApiController]
     [Route("api/accounts")]
     [Authorize]
-    public class AccountController(IMongoCollection<Account> accountCollection, AccountUtility accountUtility, IMongoCollection<TransactionHistory> transactionHistoryCollection, IMongoCollection<Withdrawal> withdrawalCollection, IMongoCollection<Deposit> depositCollection, [FromKeyedServices("withdrawalCodes")] Dictionary<string, Task> withdrawalCodes, [FromKeyedServices("depositCodes")] Dictionary<string, Task> depositCodes) : ControllerBase
+    public class AccountController(IMongoCollection<Account> accountCollection, AccountUtility accountUtility, IMongoCollection<TransactionHistory> transactionHistoryCollection, IMongoCollection<Withdrawal> withdrawalCollection, IMongoCollection<Deposit> depositCollection, IMongoCollection<User> userCollection, [FromKeyedServices("withdrawalCodes")] Dictionary<string, Task> withdrawalCodes, [FromKeyedServices("depositCodes")] Dictionary<string, Task> depositCodes, IHubContext<NotificationHub> notificationHubContext) : ControllerBase
     {
-        private const int ADMIN_FEE = 2500;
+        private const int ADMIN_FEE = 3000;
 
         [HttpGet]
         [Authorize(Policy = "AdminOnly")]
@@ -213,38 +215,56 @@ namespace BankingApplication.Controllers
                 if (senderAccount.Balance < amountTotal)
                     return BadRequest(new { Message = "balance is insufficient" });
 
-                var receiverAccountId = await accountCollection.AsQueryable()
+                var receiverAccount = await accountCollection.AsQueryable()
                     .Where(a => a.Number == payload.ReceiverAccountNumber)
-                    .Select(a => a.Id)
+                    .Select(a => new
+                    {
+                        a.Id,
+                        a.UserId
+                    })
+                    .FirstAsync();
+
+                var receiverUsername = await userCollection.AsQueryable()
+                    .Where(u => u.Id == receiverAccount.UserId)
+                    .Select(u => u.Username)
                     .FirstAsync();
 
                 var senderFilter = Builders<Account>.Filter.Eq(a => a.Number, payload.SenderAccountNumber);
                 var receiverFilter = Builders<Account>.Filter.Eq(a => a.Number, payload.ReceiverAccountNumber);
 
-                var senderUpdate = Builders<Account>.Update.Inc(a => a.Balance, amountTotal);
+                var senderUpdate = Builders<Account>.Update.Inc(a => a.Balance, -amountTotal);
                 var receiverUpdate = Builders<Account>.Update.Inc(a => a.Balance, payload.Amount);
 
                 await accountCollection.UpdateOneAsync(senderFilter, senderUpdate);
                 await accountCollection.UpdateOneAsync(receiverFilter, receiverUpdate);
 
-                await transactionHistoryCollection.InsertManyAsync([
-                    new()
-                    {
-                        DateTime = DateTime.UtcNow,
-                        Type = TransactionType.Transfer,
-                        Amount = -payload.Amount,
-                        ReceiverAccountNumber = payload.ReceiverAccountNumber,
-                        AccountId = senderAccount.Id
-                    },
-                    new()
-                    {
-                        DateTime = DateTime.UtcNow,
-                        Type = TransactionType.Transfer,
-                        Amount = payload.Amount,
-                        SenderAccountNumber = payload.SenderAccountNumber,
-                        AccountId = receiverAccountId
-                    }
-                ]);
+                var newSenderTransactionHistory = new TransactionHistory
+                {
+                    DateTime = DateTime.UtcNow,
+                    Type = TransactionType.Transfer,
+                    Amount = -payload.Amount,
+                    ReceiverAccountNumber = payload.ReceiverAccountNumber,
+                    AccountId = senderAccount.Id
+                };
+
+                var newReceiverTransactionHistory = new TransactionHistory
+                {
+                    DateTime = DateTime.UtcNow,
+                    Type = TransactionType.Transfer,
+                    Amount = payload.Amount,
+                    SenderAccountNumber = payload.SenderAccountNumber,
+                    AccountId = receiverAccount.Id
+                };
+
+                await transactionHistoryCollection.InsertManyAsync([newSenderTransactionHistory, newReceiverTransactionHistory]);
+
+                await notificationHubContext.Clients.User(receiverUsername!).SendAsync("Notification", new
+                {
+                    DateTime = newReceiverTransactionHistory.DateTime.ToLocalTime(),
+                    newReceiverTransactionHistory.Type,
+                    newReceiverTransactionHistory.Amount,
+                    newReceiverTransactionHistory.SenderAccountNumber
+                });
 
                 return Created($"/api/accounts/{senderAccount.Number}/transaction-histories", null);
             }
@@ -280,6 +300,17 @@ namespace BankingApplication.Controllers
 
                 var newCode = await accountUtility.GenerateNewWithdrawalOrDepositCodeAsync();
 
+                var newWithdrawal = new Withdrawal
+                {
+                    Code = newCode,
+                    Amount = payload.Amount,
+                    Due = DateTime.UtcNow.AddMinutes(60),
+                    Status = WithdrawalStatus.Pending,
+                    AccountId = account.Id
+                };
+
+                await withdrawalCollection.InsertOneAsync(newWithdrawal);
+
                 withdrawalCodes.Add(
                     newCode,
                     Task.Delay(TimeSpan.FromMinutes(60))
@@ -294,17 +325,6 @@ namespace BankingApplication.Controllers
                             Console.WriteLine($"Withdrawal code {newCode} has just been expired");
                         })
                 );
-
-                var newWithdrawal = new Withdrawal
-                {
-                    Code = newCode,
-                    Amount = payload.Amount,
-                    Due = DateTime.UtcNow.AddMinutes(60),
-                    Status = WithdrawalStatus.Pending,
-                    AccountId = account.Id
-                };
-
-                await withdrawalCollection.InsertOneAsync(newWithdrawal);
 
                 return Created($"/api/accounts/{account.Number}/withdrawals/{newWithdrawal.Code}", new
                 {
@@ -459,9 +479,6 @@ namespace BankingApplication.Controllers
 
                 if (deposit.Status is DepositStatus.Failed or DepositStatus.Expired)
                     return BadRequest(new { Message = "code is invalid" });
-
-                if (deposit.Amount < 100000)
-                    return BadRequest(new { Message = "minimum amount is 100000" });
 
                 var account = await accountCollection.AsQueryable()
                     .Where(a => a.Id == deposit.AccountId)
