@@ -12,7 +12,7 @@ namespace BankingApplication.Controllers
     [ApiController]
     [Route("api/users")]
     [Authorize]
-    public class UserController(IMongoCollection<User> userCollection, IMemoryCache memoryCache, IMongoCollection<Account> accountCollection, IPasswordHasher<object> passwordHasher) : ControllerBase
+    public class UserController(IMongoCollection<User> userCollection, IMemoryCache memoryCache, IMongoCollection<Account> accountCollection, IPasswordHasher<object> passwordHasher, IMongoCollection<ComplaintRequest> complaintRequestCollection, IMongoCollection<ComplaintResponse> complaintResponseCollection, IMongoCollection<Admin> adminCollection) : ControllerBase
     {
         [HttpGet]
         [Authorize(Policy = "AdminOnly")]
@@ -103,6 +103,58 @@ namespace BankingApplication.Controllers
                     .ToArray();
 
                 return Ok(accounts);
+            }
+            catch (MongoQueryException exception)
+            {
+                return BadRequest(new { exception.Message, exception.Source });
+            }
+        }
+
+        [HttpGet("me/complaint-requests")]
+        [Authorize(Policy = "UserOnly")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public IActionResult GetMyComplaintRequests()
+        {
+            var idClaim = HttpContext.User.Claims.First(cl => cl.Type == "ID");
+            var id = Guid.Parse(idClaim.Value);
+
+            try
+            {
+                var complaintRequests = complaintRequestCollection.AsQueryable()
+                    .Where(cr => cr.UserId == id)
+                    .Join(
+                        complaintResponseCollection.AsQueryable(),
+                        cr => cr.Id,
+                        cr => cr.ComplaintRequestId,
+                        (complaintRequest, complaintResponse) => new { complaintRequest, complaintResponse }
+                    )
+                    .Join(
+                        adminCollection.AsQueryable(),
+                        c => c.complaintResponse.AdminId,
+                        a => a.Id,
+                        (complaint, admin) => new
+                        {
+                            complaint.complaintRequest.Id,
+                            complaint.complaintRequest.Title,
+                            complaint.complaintRequest.Content,
+                            ComplaintResponse = new
+                            {
+                                complaint.complaintResponse.Id,
+                                complaint.complaintResponse.Title,
+                                complaint.complaintResponse.Content,
+                                Admin = new
+                                {
+                                    admin.Id,
+                                    admin.FullName,
+                                    admin.Email
+                                }
+                            }
+                        }
+                    )
+                    .ToArray();
+
+                return Ok(complaintRequests);
             }
             catch (MongoQueryException exception)
             {
