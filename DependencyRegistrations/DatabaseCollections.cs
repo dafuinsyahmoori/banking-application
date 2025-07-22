@@ -153,7 +153,28 @@ namespace BankingApplication.DependencyRegistrations
                 .AddSingleton(serviceProvider =>
                 {
                     var database = serviceProvider.GetRequiredService<IMongoDatabase>();
-                    return database.GetCollection<ComplaintResponse>("complaintResponses");
+                    var collection = database.GetCollection<ComplaintResponse>("complaintResponses");
+
+                    var existingIndexes = collection.Indexes.List();
+
+                    var doesIndexExist = existingIndexes
+                        .ToList()
+                        .Any(
+                            index => index.Any(
+                                el => el.Name == "name" && el.Value.IsString && el.Value.AsString.Contains("complaintRequestId")
+                            )
+                        );
+
+                    if (doesIndexExist)
+                        return collection;
+
+                    var indexKey = Builders<ComplaintResponse>.IndexKeys.Ascending(cr => cr.ComplaintRequestId);
+
+                    var indexModel = new CreateIndexModel<ComplaintResponse>(indexKey, new() { Unique = true });
+
+                    collection.Indexes.CreateOne(indexModel);
+
+                    return collection;
                 });
         }
     }
