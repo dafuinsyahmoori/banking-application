@@ -80,11 +80,11 @@ namespace BankingApplication.Controllers
             }
         }
 
-        [HttpPost("{id:regex(^[[a-z0-9]]+$):required}/do/respond")]
+        [HttpPost("{id}/do/respond")]
         [Authorize(Policy = "AdminOnly")]
         [ProducesResponseType(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<IActionResult> RespondToComplaintAsync(string id, ComplaintResponseForm form)
+        public async Task<IActionResult> RespondToComplaintAsync(ObjectId id, ComplaintResponseForm form)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -92,12 +92,10 @@ namespace BankingApplication.Controllers
             var adminIdClaim = HttpContext.User.Claims.First(cl => cl.Type == "ID");
             var adminId = Guid.Parse(adminIdClaim.Value);
 
-            var complaintRequestId = ObjectId.Parse(id);
-
             try
             {
                 var doesComplaintExist = await complaintRequestCollection.AsQueryable()
-                    .AnyAsync(cr => cr.Id == complaintRequestId);
+                    .AnyAsync(cr => cr.Id == id);
 
                 if (!doesComplaintExist)
                     return BadRequest(new { Message = "complaint is not found" });
@@ -106,7 +104,7 @@ namespace BankingApplication.Controllers
                 {
                     Title = form.Title,
                     Content = form.Content,
-                    ComplaintRequestId = complaintRequestId,
+                    ComplaintRequestId = id,
                     AdminId = adminId
                 });
 

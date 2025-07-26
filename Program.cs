@@ -3,6 +3,7 @@ using BankingApplication.Configurations;
 using BankingApplication.DependencyRegistrations;
 using BankingApplication.Hubs;
 using BankingApplication.JsonConverters;
+using BankingApplication.ModelBinderProviders;
 using BankingApplication.RouteConstraints;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
@@ -44,7 +45,7 @@ builder.Services.AddAuthorizationBuilder()
         policy.RequireClaim("ID");
     });
 
-builder.Services.AddControllers()
+builder.Services.AddControllers(options => options.ModelBinderProviders.Insert(0, new MongoObjectIdModelBinderProvider()))
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new DateOnlyJsonConverter());
