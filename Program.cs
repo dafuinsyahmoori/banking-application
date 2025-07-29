@@ -24,6 +24,19 @@ builder.Services.AddPendingDepositCodes();
 
 builder.Services.AddMemoryCache();
 
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddCors(
+        options => options.AddDefaultPolicy(
+            policy => policy
+                .WithOrigins("http://localhost:3000")
+                .AllowAnyHeader()
+                .AllowAnyMethod()
+                .AllowCredentials()
+        )
+    );
+}
+
 builder.Services.AddRouting(options =>
 {
     options.ConstraintMap.Add("accountNumber", typeof(AccountNumberRouteConstraint));
@@ -31,7 +44,7 @@ builder.Services.AddRouting(options =>
 });
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie();
+    .AddCookie(options => options.Cookie.SameSite = builder.Environment.IsDevelopment() ? SameSiteMode.Unspecified : SameSiteMode.Lax);
 
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("UserOnly", policy =>
@@ -74,6 +87,8 @@ app.Services.GetRequiredKeyedService<Dictionary<string, Task>>("withdrawalCodes"
 
 if (app.Environment.IsDevelopment())
 {
+    app.UseCors();
+
     app.UseSwagger();
     app.UseSwaggerUI();
 }
