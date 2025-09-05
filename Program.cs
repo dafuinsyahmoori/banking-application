@@ -35,6 +35,9 @@ if (builder.Environment.IsDevelopment())
                 .AllowCredentials()
         )
     );
+
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen();
 }
 
 builder.Services.AddRouting(options =>
@@ -69,9 +72,6 @@ builder.Services.AddControllers(options => options.ModelBinderProviders.Insert(0
     });
 
 builder.Services.AddSignalR();
-
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 builder.Services.AddHttpContextAccessor();
 
